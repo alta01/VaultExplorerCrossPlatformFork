@@ -441,7 +441,7 @@ public partial class VaultPageViewModel : ViewModelBase
                 $"metadata:\n" +
                 $"  name: {secretName}\n" +
                 $"stringData:\n" +
-                $"  {keyVaultItem.Name}: {sv.Value}";
+                $"  {keyVaultItem.Name}: {YamlDoubleQuote(sv.Value)}";
             await _clipboardService.SetTextAsync(yaml);
             ShowInAppNotification("Copied", $"'{keyVaultItem.Name}' copied as Kubernetes Secret YAML.", NotificationType.Success);
             _ = Task.Run(async () => await ClearClipboardAsync().ConfigureAwait(false));
@@ -499,7 +499,7 @@ public partial class VaultPageViewModel : ViewModelBase
                     await writer.WriteLineAsync($"{CsvEscape(sv.Name)},{CsvEscape(sv.Id?.ToString())},{CsvEscape(sv.Properties.Version)},{CsvEscape(sv.Value)}");
                     exported++;
                 }
-                catch
+                catch (Exception)
                 {
                     await writer.WriteLineAsync($"{CsvEscape(item.Name)},{CsvEscape(item.Id?.ToString())},{CsvEscape(item.Version)},");
                     failed++;
@@ -553,6 +553,9 @@ public partial class VaultPageViewModel : ViewModelBase
 
                 string name = cols[0];
                 string value = cols.Length >= 4 ? cols[3] : (cols.Length >= 2 ? cols[1] : string.Empty);
+                // Strip the tab prefix inserted by CsvEscape to neutralise spreadsheet formula injection
+                if (value.Length > 1 && value[0] == '\t')
+                    value = value.Substring(1);
 
                 try
                 {
@@ -585,10 +588,21 @@ public partial class VaultPageViewModel : ViewModelBase
     private static string CsvEscape(string? value)
     {
         if (value is null) return string.Empty;
-        if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+        // Prefix formula-injection characters so spreadsheet apps don't evaluate them as formulas (OWASP)
+        if (value.Length > 0 && (value[0] == '=' || value[0] == '+' || value[0] == '-' || value[0] == '@' || value[0] == '|'))
+            value = "\t" + value;
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
             return $"\"{value.Replace("\"", "\"\"")}\"";
         return value;
     }
+
+    private static string YamlDoubleQuote(string value) =>
+        "\"" + value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\n", "\\n")
+            .Replace("\r", "\\r")
+            .Replace("\t", "\\t") + "\"";
 
     private static string[] ParseCsvLine(string line)
     {
