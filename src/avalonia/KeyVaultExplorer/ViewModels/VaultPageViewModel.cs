@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Platform.Storage;
 using Azure.Security.KeyVault.Keys;
 using Azure.Security.KeyVault.Secrets;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -18,7 +19,9 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 //#if WINDOWS
@@ -33,6 +36,8 @@ public partial class VaultPageViewModel : ViewModelBase
     private readonly AuthService _authService;
 
     private readonly ClipboardService _clipboardService;
+
+    private readonly StorageProviderService _storageProviderService;
 
     private readonly VaultService _vaultService;
 
@@ -76,6 +81,7 @@ public partial class VaultPageViewModel : ViewModelBase
         _settingsPageViewModel = Defaults.Locator.GetRequiredService<SettingsPageViewModel>();
         _notificationViewModel = Defaults.Locator.GetRequiredService<NotificationViewModel>();
         _clipboardService = Defaults.Locator.GetRequiredService<ClipboardService>();
+        _storageProviderService = Defaults.Locator.GetRequiredService<StorageProviderService>();
         vaultContents = [];
         BitmapImage = new Lazy<Bitmap>(() => LoadImage("avares://KeyVaultExplorer/Assets/AppIcon.ico"));
 
@@ -452,6 +458,178 @@ public partial class VaultPageViewModel : ViewModelBase
         {
             ShowInAppNotification($"There was an error attempting to access '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
         }
+    }
+
+    [RelayCommand]
+    private async Task ExportSecretsToCsv()
+    {
+        var secrets = VaultContents.Where(k => k.Type == KeyVaultItemType.Secret).ToList();
+        if (secrets.Count == 0)
+        {
+            ShowInAppNotification("Nothing to export", "No secrets are loaded. Switch to the Secrets tab and refresh first.", NotificationType.Warning);
+            return;
+        }
+
+        var downloadsFolder = await _storageProviderService.TryGetWellKnownFolderAsync(WellKnownFolder.Downloads);
+        var file = await _storageProviderService.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export Secrets to CSV",
+            SuggestedFileName = $"secrets-{DateTime.Now:yyyy-MM-dd}",
+            SuggestedStartLocation = downloadsFolder,
+            DefaultExtension = "csv",
+            FileTypeChoices = new[] { new FilePickerFileType("CSV Files") { Patterns = new[] { "*.csv" } } }
+        });
+
+        if (file is null) return;
+
+        IsBusy = true;
+        int exported = 0;
+        int failed = 0;
+        try
+        {
+            await using var stream = await file.OpenWriteAsync();
+            using var writer = new StreamWriter(stream, Encoding.UTF8);
+            await writer.WriteLineAsync("Name,Identifier,Version,Value");
+
+            foreach (var item in secrets)
+            {
+                try
+                {
+                    var sv = await _vaultService.GetSecret(item.VaultUri, item.Name);
+                    await writer.WriteLineAsync($"{CsvEscape(sv.Name)},{CsvEscape(sv.Id?.ToString())},{CsvEscape(sv.Properties.Version)},{CsvEscape(sv.Value)}");
+                    exported++;
+                }
+                catch
+                {
+                    await writer.WriteLineAsync($"{CsvEscape(item.Name)},{CsvEscape(item.Id?.ToString())},{CsvEscape(item.Version)},");
+                    failed++;
+                }
+            }
+
+            if (failed == 0)
+                ShowInAppNotification("Exported", $"{exported} secret(s) exported to CSV.", NotificationType.Success);
+            else
+                ShowInAppNotification("Exported with warnings", $"{exported} exported, {failed} could not be retrieved and were written without a value.", NotificationType.Warning);
+        }
+        catch (Exception ex)
+        {
+            ShowInAppNotification("Export failed", ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportSecretsFromCsv()
+    {
+        var files = await _storageProviderService.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Import Secrets from CSV",
+            AllowMultiple = false,
+            FileTypeFilter = new[] { new FilePickerFileType("CSV Files") { Patterns = new[] { "*.csv" } } }
+        });
+
+        if (files.Count == 0) return;
+
+        IsBusy = true;
+        int imported = 0;
+        int failed = 0;
+        try
+        {
+            await using var stream = await files[0].OpenReadAsync();
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+
+            // skip header
+            await reader.ReadLineAsync();
+
+            string? line;
+            while ((line = await reader.ReadLineAsync()) is not null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                var cols = ParseCsvLine(line);
+                if (cols.Length < 2 || string.IsNullOrWhiteSpace(cols[0])) continue;
+
+                string name = cols[0];
+                string value = cols.Length >= 4 ? cols[3] : (cols.Length >= 2 ? cols[1] : string.Empty);
+
+                try
+                {
+                    var secret = new KeyVaultSecret(name, value);
+                    await _vaultService.CreateSecret(secret, VaultUri);
+                    imported++;
+                }
+                catch (Exception ex)
+                {
+                    ShowInAppNotification($"Failed to import '{name}'", ex.Message, NotificationType.Error);
+                    failed++;
+                }
+            }
+
+            ShowInAppNotification(
+                failed == 0 ? "Import complete" : "Import complete with errors",
+                $"{imported} secret(s) imported, {failed} failed.",
+                failed == 0 ? NotificationType.Success : NotificationType.Warning);
+        }
+        catch (Exception ex)
+        {
+            ShowInAppNotification("Import failed", ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static string CsvEscape(string? value)
+    {
+        if (value is null) return string.Empty;
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+
+    private static string[] ParseCsvLine(string line)
+    {
+        var fields = new List<string>();
+        var sb = new StringBuilder();
+        bool inQuotes = false;
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+            if (inQuotes)
+            {
+                if (c == '"' && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    sb.Append('"');
+                    i++;
+                }
+                else if (c == '"')
+                {
+                    inQuotes = false;
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            else if (c == '"')
+            {
+                inQuotes = true;
+            }
+            else if (c == ',')
+            {
+                fields.Add(sb.ToString());
+                sb.Clear();
+            }
+            else
+            {
+                sb.Append(c);
+            }
+        }
+        fields.Add(sb.ToString());
+        return fields.ToArray();
     }
 
     private async Task DelaySetIsBusy(bool val)

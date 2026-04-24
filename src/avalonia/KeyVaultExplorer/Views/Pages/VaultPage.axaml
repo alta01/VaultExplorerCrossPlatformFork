@@ -183,6 +183,31 @@
                             </MenuFlyout>
                         </DropDownButton.Flyout>
                     </DropDownButton>
+
+                    <DropDownButton
+                        Name="CsvDropDownButton"
+                        Margin="5,0,5,0"
+                        FontSize="{DynamicResource FontSizeSmall}"
+                        ToolTip.Tip="Export or import secrets via CSV"
+                        ToolTip.VerticalOffset="10">
+                        <DropDownButton.Styles>
+                            <Style Selector="DropDownButton#CsvDropDownButton">
+                                <Setter Property="MinHeight" Value="28" />
+                                <Setter Property="Height" Value="28" />
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+                            </Style>
+                        </DropDownButton.Styles>
+                        <DropDownButton.Content>
+                            <TextBlock VerticalAlignment="{OnPlatform Bottom, Windows=Center}" Text="CSV" />
+                        </DropDownButton.Content>
+                        <DropDownButton.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Command="{Binding ExportSecretsToCsvCommand}" Header="Export Secrets to CSV…" />
+                                <MenuItem Command="{Binding ImportSecretsFromCsvCommand}" Header="Import Secrets from CSV…" />
+                            </MenuFlyout>
+                        </DropDownButton.Flyout>
+                    </DropDownButton>
+
                     <TextBox
                         Name="SearchTextBox"
                         HorizontalAlignment="Stretch"
