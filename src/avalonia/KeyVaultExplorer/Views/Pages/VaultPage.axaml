@@ -68,6 +68,11 @@
                 CommandParameter="{Binding #VaultContentDataGrid.SelectedItem}"
                 IconSource="Sync"
                 Text="Rotate Key" />
+            <ui:MenuFlyoutItem
+                Command="{Binding ConfigureRotationPolicyCommand}"
+                CommandParameter="{Binding #VaultContentDataGrid.SelectedItem}"
+                IconSource="Setting"
+                Text="Configure Rotation Policy…" />
         </ui:FAMenuFlyout>
 
         <DataTemplate x:Key="MainViewModelTemplate">

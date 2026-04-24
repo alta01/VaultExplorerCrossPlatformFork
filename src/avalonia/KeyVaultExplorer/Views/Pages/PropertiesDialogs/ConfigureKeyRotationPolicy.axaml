@@ -1,0 +1,100 @@
+<UserControl
+    x:Class="KeyVaultExplorer.Views.Pages.PropertiesDialogs.ConfigureKeyRotationPolicy"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:KeyVaultExplorer.ViewModels"
+    d:DesignHeight="480"
+    d:DesignWidth="500"
+    x:DataType="vm:ConfigureKeyRotationPolicyViewModel"
+    mc:Ignorable="d">
+
+    <ScrollViewer MinWidth="460" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="16,12" Spacing="10" Orientation="Vertical">
+
+            <!-- Key Expiry -->
+            <TextBlock Theme="{StaticResource BodyStrongTextBlockStyle}" Text="Key Expiry" />
+            <TextBlock
+                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                TextWrapping="Wrap"
+                Text="Sets the overall lifetime of all key versions. Leave unchecked for no expiry." />
+            <CheckBox IsChecked="{Binding HasExpiry, Mode=TwoWay}" Content="Set expiry duration" />
+            <StackPanel
+                IsVisible="{Binding HasExpiry}"
+                Orientation="Horizontal"
+                Spacing="8">
+                <NumericUpDown
+                    Width="110"
+                    Minimum="1"
+                    Maximum="9999"
+                    FormatString="0"
+                    Value="{Binding ExpiresInValue, Mode=TwoWay}" />
+                <ComboBox
+                    MinWidth="110"
+                    ItemsSource="{Binding DurationUnits}"
+                    SelectedItem="{Binding ExpiresInUnit, Mode=TwoWay}" />
+                <TextBlock VerticalAlignment="Center" Text="after creation" />
+            </StackPanel>
+
+            <Separator Margin="0,4" />
+
+            <!-- Auto-Rotate -->
+            <TextBlock Theme="{StaticResource BodyStrongTextBlockStyle}" Text="Auto-rotate" />
+            <TextBlock
+                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                TextWrapping="Wrap"
+                Text="Automatically creates a new key version on the specified schedule." />
+            <CheckBox IsChecked="{Binding EnableRotation, Mode=TwoWay}" Content="Enable automatic rotation" />
+            <StackPanel
+                IsVisible="{Binding EnableRotation}"
+                Orientation="Vertical"
+                Spacing="8">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <NumericUpDown
+                        Width="110"
+                        Minimum="1"
+                        Maximum="9999"
+                        FormatString="0"
+                        Value="{Binding RotateTriggerValue, Mode=TwoWay}" />
+                    <ComboBox
+                        MinWidth="110"
+                        ItemsSource="{Binding DurationUnits}"
+                        SelectedItem="{Binding RotateTriggerUnit, Mode=TwoWay}" />
+                    <ComboBox
+                        MinWidth="140"
+                        ItemsSource="{Binding TriggerTypes}"
+                        SelectedItem="{Binding RotateTriggerType, Mode=TwoWay}" />
+                </StackPanel>
+            </StackPanel>
+
+            <Separator Margin="0,4" />
+
+            <!-- Notify -->
+            <TextBlock Theme="{StaticResource BodyStrongTextBlockStyle}" Text="Expiry Notification" />
+            <TextBlock
+                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                TextWrapping="Wrap"
+                Text="Sends an Event Grid notification before expiry. Requires a key expiry duration." />
+            <CheckBox IsChecked="{Binding EnableNotification, Mode=TwoWay}" Content="Notify before expiry" />
+            <StackPanel
+                IsVisible="{Binding EnableNotification}"
+                Orientation="Horizontal"
+                Spacing="8">
+                <NumericUpDown
+                    Width="110"
+                    Minimum="1"
+                    Maximum="9999"
+                    FormatString="0"
+                    Value="{Binding NotifyTriggerValue, Mode=TwoWay}" />
+                <ComboBox
+                    MinWidth="110"
+                    ItemsSource="{Binding DurationUnits}"
+                    SelectedItem="{Binding NotifyTriggerUnit, Mode=TwoWay}" />
+                <TextBlock VerticalAlignment="Center" Text="before expiry" />
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

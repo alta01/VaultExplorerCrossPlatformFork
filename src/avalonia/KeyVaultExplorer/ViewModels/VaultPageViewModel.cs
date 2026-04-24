@@ -18,6 +18,7 @@ using FluentAvalonia.UI.Windowing;
 using KeyVaultExplorer.Exceptions;
 using KeyVaultExplorer.Models;
 using KeyVaultExplorer.Services;
+using KeyVaultExplorer.Views.Pages.PropertiesDialogs;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -421,6 +422,60 @@ public partial class VaultPageViewModel : ViewModelBase
         catch (Exception ex)
         {
             ShowInAppNotification($"There was an error rotating '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ConfigureRotationPolicy(KeyVaultContentsAmalgamation keyVaultItem)
+    {
+        if (keyVaultItem is null) return;
+        if (keyVaultItem.Type != KeyVaultItemType.Key)
+        {
+            ShowInAppNotification("Not supported", "Rotation policy configuration is only available for keys.", NotificationType.Warning);
+            return;
+        }
+
+        var vm = new ConfigureKeyRotationPolicyViewModel();
+        try
+        {
+            var existing = await _vaultService.GetKeyRotationPolicy(keyVaultItem.VaultUri, keyVaultItem.Name);
+            vm.LoadFromPolicy(existing);
+        }
+        catch { /* no policy set yet — use defaults */ }
+
+        var lifetime = App.Current.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        var saveBtn = new TaskDialogButton("Save Policy", "SavePolicyConfirmed") { IsDefault = true };
+        var dialog = new TaskDialog
+        {
+            Title = $"Rotation Policy — {keyVaultItem.Name}",
+            XamlRoot = lifetime?.Windows.Last() as AppWindow,
+            Buttons = { saveBtn, TaskDialogButton.CancelButton },
+            MinWidth = 520,
+            MinHeight = 400,
+            Content = new ConfigureKeyRotationPolicy { DataContext = vm },
+        };
+
+        var result = await dialog.ShowAsync(true);
+        if (result is not "SavePolicyConfirmed") return;
+
+        IsBusy = true;
+        try
+        {
+            var policy = vm.BuildPolicy();
+            await _vaultService.UpdateKeyRotationPolicy(keyVaultItem.VaultUri, keyVaultItem.Name, policy);
+            ShowInAppNotification("Policy saved", $"Rotation policy for '{keyVaultItem.Name}' has been updated.", NotificationType.Success);
+        }
+        catch (KeyVaultInsufficientPrivilegesException ex)
+        {
+            ShowInAppNotification($"Insufficient Privileges to update policy for '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+        catch (Exception ex)
+        {
+            ShowInAppNotification($"Failed to save rotation policy for '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
         }
         finally
         {
