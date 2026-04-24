@@ -46,6 +46,22 @@
                 CommandParameter="{Binding #VaultContentDataGrid.SelectedItem}"
                 IconSource="Copy"
                 Text="Copy URI" />
+            <ui:MenuFlyoutSeparator />
+            <ui:MenuFlyoutItem
+                Command="{Binding CopyAsEnvVarCommand}"
+                CommandParameter="{Binding #VaultContentDataGrid.SelectedItem}"
+                IconSource="Code"
+                Text="Copy as ENV Variable  →  NAME=value" />
+            <ui:MenuFlyoutItem
+                Command="{Binding CopyAsDockerEnvCommand}"
+                CommandParameter="{Binding #VaultContentDataGrid.SelectedItem}"
+                IconSource="Code"
+                Text="Copy as Docker --env  →  --env NAME=value" />
+            <ui:MenuFlyoutItem
+                Command="{Binding CopyAsK8sYamlCommand}"
+                CommandParameter="{Binding #VaultContentDataGrid.SelectedItem}"
+                IconSource="Code"
+                Text="Copy as Kubernetes YAML" />
         </ui:FAMenuFlyout>
 
         <DataTemplate x:Key="MainViewModelTemplate">
