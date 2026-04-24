@@ -354,6 +354,106 @@ public partial class VaultPageViewModel : ViewModelBase
         await _clipboardService.SetTextAsync(keyVaultItem.Id.ToString());
     }
 
+    [RelayCommand]
+    private async Task CopyAsEnvVar(KeyVaultContentsAmalgamation keyVaultItem)
+    {
+        if (keyVaultItem is null) return;
+        try
+        {
+            if (keyVaultItem.Type != KeyVaultItemType.Secret)
+            {
+                ShowInAppNotification("Not supported", "Copy as environment variable is only available for secrets.", NotificationType.Warning);
+                return;
+            }
+            var sv = await _vaultService.GetSecret(keyVaultItem.VaultUri, keyVaultItem.Name);
+            string envName = keyVaultItem.Name.Replace('-', '_').ToUpperInvariant();
+            await _clipboardService.SetTextAsync($"{envName}={sv.Value}");
+            ShowInAppNotification("Copied", $"'{keyVaultItem.Name}' copied as environment variable.", NotificationType.Success);
+            _ = Task.Run(async () => await ClearClipboardAsync().ConfigureAwait(false));
+        }
+        catch (KeyVaultItemNotFoundException ex)
+        {
+            ShowInAppNotification($"A value was not found for '{keyVaultItem.Name}'", ex.Message, NotificationType.Error);
+        }
+        catch (KeyVaultInsufficientPrivilegesException ex)
+        {
+            ShowInAppNotification($"Insufficient Privileges to access '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+        catch (Exception ex)
+        {
+            ShowInAppNotification($"There was an error attempting to access '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task CopyAsDockerEnv(KeyVaultContentsAmalgamation keyVaultItem)
+    {
+        if (keyVaultItem is null) return;
+        try
+        {
+            if (keyVaultItem.Type != KeyVaultItemType.Secret)
+            {
+                ShowInAppNotification("Not supported", "Copy as Docker --env is only available for secrets.", NotificationType.Warning);
+                return;
+            }
+            var sv = await _vaultService.GetSecret(keyVaultItem.VaultUri, keyVaultItem.Name);
+            string envName = keyVaultItem.Name.Replace('-', '_').ToUpperInvariant();
+            await _clipboardService.SetTextAsync($"--env {envName}={sv.Value}");
+            ShowInAppNotification("Copied", $"'{keyVaultItem.Name}' copied as Docker --env flag.", NotificationType.Success);
+            _ = Task.Run(async () => await ClearClipboardAsync().ConfigureAwait(false));
+        }
+        catch (KeyVaultItemNotFoundException ex)
+        {
+            ShowInAppNotification($"A value was not found for '{keyVaultItem.Name}'", ex.Message, NotificationType.Error);
+        }
+        catch (KeyVaultInsufficientPrivilegesException ex)
+        {
+            ShowInAppNotification($"Insufficient Privileges to access '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+        catch (Exception ex)
+        {
+            ShowInAppNotification($"There was an error attempting to access '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task CopyAsK8sYaml(KeyVaultContentsAmalgamation keyVaultItem)
+    {
+        if (keyVaultItem is null) return;
+        try
+        {
+            if (keyVaultItem.Type != KeyVaultItemType.Secret)
+            {
+                ShowInAppNotification("Not supported", "Copy as Kubernetes YAML is only available for secrets.", NotificationType.Warning);
+                return;
+            }
+            var sv = await _vaultService.GetSecret(keyVaultItem.VaultUri, keyVaultItem.Name);
+            string secretName = keyVaultItem.Name.Replace('_', '-').ToLowerInvariant();
+            string yaml =
+                $"apiVersion: v1\n" +
+                $"kind: Secret\n" +
+                $"metadata:\n" +
+                $"  name: {secretName}\n" +
+                $"stringData:\n" +
+                $"  {keyVaultItem.Name}: {sv.Value}";
+            await _clipboardService.SetTextAsync(yaml);
+            ShowInAppNotification("Copied", $"'{keyVaultItem.Name}' copied as Kubernetes Secret YAML.", NotificationType.Success);
+            _ = Task.Run(async () => await ClearClipboardAsync().ConfigureAwait(false));
+        }
+        catch (KeyVaultItemNotFoundException ex)
+        {
+            ShowInAppNotification($"A value was not found for '{keyVaultItem.Name}'", ex.Message, NotificationType.Error);
+        }
+        catch (KeyVaultInsufficientPrivilegesException ex)
+        {
+            ShowInAppNotification($"Insufficient Privileges to access '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+        catch (Exception ex)
+        {
+            ShowInAppNotification($"There was an error attempting to access '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+    }
+
     private async Task DelaySetIsBusy(bool val)
     {
         await Task.Delay(1000);
