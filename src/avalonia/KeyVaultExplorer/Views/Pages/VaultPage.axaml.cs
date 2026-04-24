@@ -13,6 +13,7 @@ using KeyVaultExplorer.Exceptions;
 using KeyVaultExplorer.Models;
 using KeyVaultExplorer.ViewModels;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -37,6 +38,8 @@ public partial class VaultPage : UserControl
         TabHost.SelectionChanged += TabHostSelectionChanged;
         TabHostSelectionChanged(KeyVaultItemType.Secret, null);
         _notificationViewModel = Defaults.Locator.GetRequiredService<NotificationViewModel>();
+        model.PropertyChanged += OnColumnVisibilityChanged;
+        Dispatcher.UIThread.Post(() => ApplyColumnVisibility(model), DispatcherPriority.Loaded);
     }
 
     public VaultPage(Uri kvUri)
@@ -51,6 +54,8 @@ public partial class VaultPage : UserControl
         TabHost.SelectionChanged += TabHostSelectionChanged;
         TabHostSelectionChanged(KeyVaultItemType.Secret, null);
         _notificationViewModel = Defaults.Locator.GetRequiredService<NotificationViewModel>();
+        model.PropertyChanged += OnColumnVisibilityChanged;
+        Dispatcher.UIThread.Post(() => ApplyColumnVisibility(model), DispatcherPriority.Loaded);
     }
 
     private DataGrid ValuesDataGrid { get; set; }
@@ -228,5 +233,32 @@ public partial class VaultPage : UserControl
 
         ;
         var result = await dialog.ShowAsync();
+    }
+
+    private void OnColumnVisibilityChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(VaultPageViewModel.ShowLastModifiedColumn)
+            or nameof(VaultPageViewModel.ShowExpiresColumn)
+            or nameof(VaultPageViewModel.ShowTagsColumn)
+            or nameof(VaultPageViewModel.ShowIdentifierColumn)
+            or nameof(VaultPageViewModel.ShowUpdatedColumn)
+            or nameof(VaultPageViewModel.ShowCreatedColumn)
+            or nameof(VaultPageViewModel.ShowValueUriColumn)
+            or nameof(VaultPageViewModel.ShowContentTypeColumn))
+            ApplyColumnVisibility(sender as VaultPageViewModel);
+    }
+
+    private void ApplyColumnVisibility(VaultPageViewModel vm)
+    {
+        var cols = ValuesDataGrid.Columns;
+        if (cols.Count < 9) return;
+        cols[1].IsVisible = vm.ShowLastModifiedColumn;
+        cols[2].IsVisible = vm.ShowExpiresColumn;
+        cols[3].IsVisible = vm.ShowTagsColumn;
+        cols[4].IsVisible = vm.ShowIdentifierColumn;
+        cols[5].IsVisible = vm.ShowUpdatedColumn;
+        cols[6].IsVisible = vm.ShowCreatedColumn;
+        cols[7].IsVisible = vm.ShowValueUriColumn;
+        cols[8].IsVisible = vm.ShowContentTypeColumn;
     }
 }

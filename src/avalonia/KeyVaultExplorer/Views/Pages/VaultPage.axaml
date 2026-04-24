@@ -62,6 +62,12 @@
                 CommandParameter="{Binding #VaultContentDataGrid.SelectedItem}"
                 IconSource="Code"
                 Text="Copy as Kubernetes YAML" />
+            <ui:MenuFlyoutSeparator />
+            <ui:MenuFlyoutItem
+                Command="{Binding RotateKeyCommand}"
+                CommandParameter="{Binding #VaultContentDataGrid.SelectedItem}"
+                IconSource="Sync"
+                Text="Rotate Key" />
         </ui:FAMenuFlyout>
 
         <DataTemplate x:Key="MainViewModelTemplate">
@@ -204,6 +210,36 @@
                             <MenuFlyout>
                                 <MenuItem Command="{Binding ExportSecretsToCsvCommand}" Header="Export Secrets to CSV…" />
                                 <MenuItem Command="{Binding ImportSecretsFromCsvCommand}" Header="Import Secrets from CSV…" />
+                            </MenuFlyout>
+                        </DropDownButton.Flyout>
+                    </DropDownButton>
+
+                    <DropDownButton
+                        Name="ColumnsDropDownButton"
+                        Margin="5,0,5,0"
+                        FontSize="{DynamicResource FontSizeSmall}"
+                        ToolTip.Tip="Show or hide columns"
+                        ToolTip.VerticalOffset="10">
+                        <DropDownButton.Styles>
+                            <Style Selector="DropDownButton#ColumnsDropDownButton">
+                                <Setter Property="MinHeight" Value="28" />
+                                <Setter Property="Height" Value="28" />
+                                <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+                            </Style>
+                        </DropDownButton.Styles>
+                        <DropDownButton.Content>
+                            <TextBlock VerticalAlignment="{OnPlatform Bottom, Windows=Center}" Text="Columns" />
+                        </DropDownButton.Content>
+                        <DropDownButton.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Header="Last Modified" IsCheckable="True" IsChecked="{Binding ShowLastModifiedColumn, Mode=TwoWay}" />
+                                <MenuItem Header="Expires"       IsCheckable="True" IsChecked="{Binding ShowExpiresColumn,      Mode=TwoWay}" />
+                                <MenuItem Header="Tags"          IsCheckable="True" IsChecked="{Binding ShowTagsColumn,         Mode=TwoWay}" />
+                                <MenuItem Header="Identifier"    IsCheckable="True" IsChecked="{Binding ShowIdentifierColumn,   Mode=TwoWay}" />
+                                <MenuItem Header="Updated"       IsCheckable="True" IsChecked="{Binding ShowUpdatedColumn,      Mode=TwoWay}" />
+                                <MenuItem Header="Created"       IsCheckable="True" IsChecked="{Binding ShowCreatedColumn,      Mode=TwoWay}" />
+                                <MenuItem Header="Value URI"     IsCheckable="True" IsChecked="{Binding ShowValueUriColumn,     Mode=TwoWay}" />
+                                <MenuItem Header="Content Type"  IsCheckable="True" IsChecked="{Binding ShowContentTypeColumn,  Mode=TwoWay}" />
                             </MenuFlyout>
                         </DropDownButton.Flyout>
                     </DropDownButton>

@@ -17,6 +17,12 @@ public class AppSettings
     public bool SettingsPageClientIdCheckbox { get; set; } = false;
     public string CustomClientId { get; set; } = string.Empty;
 
-
-
+    public bool ShowLastModifiedColumn { get; set; } = true;
+    public bool ShowExpiresColumn      { get; set; } = true;
+    public bool ShowTagsColumn         { get; set; } = true;
+    public bool ShowIdentifierColumn   { get; set; } = true;
+    public bool ShowUpdatedColumn      { get; set; } = true;
+    public bool ShowCreatedColumn      { get; set; } = true;
+    public bool ShowValueUriColumn     { get; set; } = true;
+    public bool ShowContentTypeColumn  { get; set; } = true;
 }

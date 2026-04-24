@@ -351,6 +351,13 @@ public partial class VaultService
         return await client.UpdateKeyPropertiesAsync(properties);
     }
 
+    public async Task<KeyVaultKey> RotateKey(Uri kvUri, string name)
+    {
+        var token = new CustomTokenCredential(await _authService.GetAzureKeyVaultTokenSilent());
+        var client = new KeyClient(kvUri, token);
+        return await client.RotateKeyAsync(name);
+    }
+
     public async Task<SecretProperties> UpdateSecret(SecretProperties properties, Uri KeyVaultUri)
     {
         var token = new CustomTokenCredential(await _authService.GetAzureKeyVaultTokenSilent());

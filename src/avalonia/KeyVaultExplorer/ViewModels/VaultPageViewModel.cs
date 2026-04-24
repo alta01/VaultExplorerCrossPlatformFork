@@ -6,11 +6,14 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Azure.Security.KeyVault.Keys;
 using Azure.Security.KeyVault.Secrets;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 using KeyVaultExplorer.Exceptions;
 using KeyVaultExplorer.Models;
@@ -72,6 +75,15 @@ public partial class VaultPageViewModel : ViewModelBase
     [ObservableProperty]
     private Uri vaultUri;
 
+    [ObservableProperty] private bool showLastModifiedColumn = true;
+    [ObservableProperty] private bool showExpiresColumn      = true;
+    [ObservableProperty] private bool showTagsColumn         = true;
+    [ObservableProperty] private bool showIdentifierColumn   = true;
+    [ObservableProperty] private bool showUpdatedColumn      = true;
+    [ObservableProperty] private bool showCreatedColumn      = true;
+    [ObservableProperty] private bool showValueUriColumn     = true;
+    [ObservableProperty] private bool showContentTypeColumn  = true;
+
     private readonly Lazy<Bitmap> BitmapImage;
 
     public VaultPageViewModel()
@@ -84,6 +96,19 @@ public partial class VaultPageViewModel : ViewModelBase
         _storageProviderService = Defaults.Locator.GetRequiredService<StorageProviderService>();
         vaultContents = [];
         BitmapImage = new Lazy<Bitmap>(() => LoadImage("avares://KeyVaultExplorer/Assets/AppIcon.ico"));
+
+        Dispatcher.UIThread.Invoke(async () =>
+        {
+            var s = await _settingsPageViewModel.GetAppSettings();
+            ShowLastModifiedColumn = s.ShowLastModifiedColumn;
+            ShowExpiresColumn      = s.ShowExpiresColumn;
+            ShowTagsColumn         = s.ShowTagsColumn;
+            ShowIdentifierColumn   = s.ShowIdentifierColumn;
+            ShowUpdatedColumn      = s.ShowUpdatedColumn;
+            ShowCreatedColumn      = s.ShowCreatedColumn;
+            ShowValueUriColumn     = s.ShowValueUriColumn;
+            ShowContentTypeColumn  = s.ShowContentTypeColumn;
+        }, DispatcherPriority.Normal);
 
 #if DEBUG
         for (int i = 0; i < 5; i++)
@@ -358,6 +383,49 @@ public partial class VaultPageViewModel : ViewModelBase
     {
         if (keyVaultItem is null) return;
         await _clipboardService.SetTextAsync(keyVaultItem.Id.ToString());
+    }
+
+    [RelayCommand]
+    private async Task RotateKey(KeyVaultContentsAmalgamation keyVaultItem)
+    {
+        if (keyVaultItem is null) return;
+        if (keyVaultItem.Type != KeyVaultItemType.Key)
+        {
+            ShowInAppNotification("Not supported", "Key rotation is only available for keys.", NotificationType.Warning);
+            return;
+        }
+
+        var lifetime = App.Current.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        var confirmBtn = new TaskDialogButton("Rotate Key", "RotateKeyConfirmed") { IsDefault = true };
+        var dialog = new TaskDialog
+        {
+            Title = "Rotate Key",
+            Header = $"Rotate '{keyVaultItem.Name}'?",
+            Content = "A new cryptographic version will be created. The previous version remains available but inactive. This cannot be undone.",
+            XamlRoot = lifetime?.Windows.Last() as AppWindow,
+            Buttons = { confirmBtn, TaskDialogButton.CancelButton },
+        };
+        var result = await dialog.ShowAsync(true);
+        if (result is not "RotateKeyConfirmed") return;
+
+        IsBusy = true;
+        try
+        {
+            await _vaultService.RotateKey(keyVaultItem.VaultUri, keyVaultItem.Name);
+            ShowInAppNotification("Rotated", $"'{keyVaultItem.Name}' has been rotated to a new version.", NotificationType.Success);
+        }
+        catch (KeyVaultInsufficientPrivilegesException ex)
+        {
+            ShowInAppNotification($"Insufficient Privileges to rotate '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+        catch (Exception ex)
+        {
+            ShowInAppNotification($"There was an error rotating '{keyVaultItem.Name}'.", ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
@@ -657,6 +725,30 @@ public partial class VaultPageViewModel : ViewModelBase
         await loadFunction(VaultUri);
         LoadedItemTypes.TryAdd(type, true);
     }
+
+    partial void OnShowLastModifiedColumnChanged(bool value) =>
+        Dispatcher.UIThread.InvokeAsync(async () => await _settingsPageViewModel.AddOrUpdateAppSettings(nameof(AppSettings.ShowLastModifiedColumn), value), DispatcherPriority.Background);
+
+    partial void OnShowExpiresColumnChanged(bool value) =>
+        Dispatcher.UIThread.InvokeAsync(async () => await _settingsPageViewModel.AddOrUpdateAppSettings(nameof(AppSettings.ShowExpiresColumn), value), DispatcherPriority.Background);
+
+    partial void OnShowTagsColumnChanged(bool value) =>
+        Dispatcher.UIThread.InvokeAsync(async () => await _settingsPageViewModel.AddOrUpdateAppSettings(nameof(AppSettings.ShowTagsColumn), value), DispatcherPriority.Background);
+
+    partial void OnShowIdentifierColumnChanged(bool value) =>
+        Dispatcher.UIThread.InvokeAsync(async () => await _settingsPageViewModel.AddOrUpdateAppSettings(nameof(AppSettings.ShowIdentifierColumn), value), DispatcherPriority.Background);
+
+    partial void OnShowUpdatedColumnChanged(bool value) =>
+        Dispatcher.UIThread.InvokeAsync(async () => await _settingsPageViewModel.AddOrUpdateAppSettings(nameof(AppSettings.ShowUpdatedColumn), value), DispatcherPriority.Background);
+
+    partial void OnShowCreatedColumnChanged(bool value) =>
+        Dispatcher.UIThread.InvokeAsync(async () => await _settingsPageViewModel.AddOrUpdateAppSettings(nameof(AppSettings.ShowCreatedColumn), value), DispatcherPriority.Background);
+
+    partial void OnShowValueUriColumnChanged(bool value) =>
+        Dispatcher.UIThread.InvokeAsync(async () => await _settingsPageViewModel.AddOrUpdateAppSettings(nameof(AppSettings.ShowValueUriColumn), value), DispatcherPriority.Background);
+
+    partial void OnShowContentTypeColumnChanged(bool value) =>
+        Dispatcher.UIThread.InvokeAsync(async () => await _settingsPageViewModel.AddOrUpdateAppSettings(nameof(AppSettings.ShowContentTypeColumn), value), DispatcherPriority.Background);
 
     partial void OnSearchQueryChanged(string value)
     {
